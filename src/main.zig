@@ -14,7 +14,7 @@ pub fn main() !void {
     defer target.close();
 
     const output = try runFilterUI(alloc, target);
-    defer output.deinit();
+    defer alloc.free(output);
 
     try runGoGet(alloc, output, target);
 }
@@ -59,7 +59,7 @@ fn openTarget(alloc: std.mem.Allocator) !Target {
     };
 }
 
-fn runFilterUI(alloc: std.mem.Allocator, target: Target) !std.ArrayList(u8) {
+fn runFilterUI(alloc: std.mem.Allocator, target: Target) ![]u8 {
     var child = std.process.Child.init(&.{
         "gum",
         "filter",
@@ -112,15 +112,15 @@ fn runFilterUI(alloc: std.mem.Allocator, target: Target) !std.ArrayList(u8) {
     const term = try child.wait();
     if (term.Exited != 0) return Error.ChildNonZeroExit;
 
-    return output;
+    return try output.toOwnedSlice();
 }
 
-fn runGoGet(alloc: std.mem.Allocator, output: std.ArrayList(u8), target: Target) !void {
+fn runGoGet(alloc: std.mem.Allocator, output: []u8, target: Target) !void {
     var argv = std.ArrayList([]const u8).init(alloc);
     defer argv.deinit();
 
     try argv.appendSlice(&.{ "go", "get" });
-    var tokens = std.mem.tokenizeScalar(u8, output.items, '\n');
+    var tokens = std.mem.tokenizeScalar(u8, output, '\n');
     while (tokens.next()) |token| {
         try argv.append(token);
     }
