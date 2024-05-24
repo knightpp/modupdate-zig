@@ -4,4 +4,4 @@ build/
 build-*/
 docgen_tmp/
 
-/.vscode/
+/.vscode/settings.json
