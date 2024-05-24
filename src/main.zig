@@ -29,9 +29,10 @@ const Target = struct {
     file: std.fs.File,
     dir: std.fs.Dir,
 
-    fn close(self: *@This()) void {
-        self.file.close();
-        self.dir.close();
+    fn close(self: @This()) void {
+        var s = self;
+        s.file.close();
+        s.dir.close();
     }
 };
 
