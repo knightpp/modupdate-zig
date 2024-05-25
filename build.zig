@@ -14,8 +14,15 @@ pub fn build(b: *std.Build) void {
     });
 
     const lib = b.addStaticLibrary(.{
-        .name = "gomod",
-        .root_source_file = b.path("src/gomod.zig"),
+        .name = "gomodfile",
+        .root_source_file = b.path("src/lib.zig"),
+        .target = target,
+        .optimize = optimize,
+        .single_threaded = true,
+    });
+
+    _ = b.addModule("gomodfile", .{
+        .root_source_file = b.path("src/lib.zig"),
         .target = target,
         .optimize = optimize,
         .single_threaded = true,
