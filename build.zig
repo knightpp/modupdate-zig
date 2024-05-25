@@ -59,4 +59,13 @@ pub fn build(b: *std.Build) void {
         const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
         test_step.dependOn(&run_lib_unit_tests.step);
     }
+
+    // b.default_step.dependOn(test_step); // run tests before building
+
+    const cov_step = b.step("cov", "Generate coverage");
+
+    const cov_run = b.addSystemCommand(&.{ "kcov", "--clean", "--include-pattern=src/", "kcov-output" });
+    cov_run.addArtifactArg(lib_unit_tests);
+
+    cov_step.dependOn(&cov_run.step);
 }
