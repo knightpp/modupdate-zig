@@ -68,4 +68,14 @@ pub fn build(b: *std.Build) void {
     cov_run.addArtifactArg(lib_unit_tests);
 
     cov_step.dependOn(&cov_run.step);
+
+    const lints_step = b.step("lints", "Run lints");
+
+    const lints = b.addFmt(.{
+        .paths = &.{ "src", "build.zig" },
+        .check = true,
+    });
+
+    lints_step.dependOn(&lints.step);
+    b.default_step.dependOn(lints_step);
 }
