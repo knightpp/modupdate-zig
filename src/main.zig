@@ -1,5 +1,5 @@
 const std = @import("std");
-const gomod = @import("gomod.zig");
+const lib = @import("lib.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -73,20 +73,21 @@ fn runFilterUI(alloc: std.mem.Allocator, target: Target) ![]u8 {
     try child.spawn();
 
     {
-        var buf = std.io.bufferedReader(target.file.reader());
-        const reader = buf.reader();
+        var buf_reader = std.io.bufferedReader(target.file.reader());
+        const buf = try buf_reader.reader().readAllAlloc(alloc, 32 * 1024);
+        defer alloc.free(buf);
 
         var stdin = child.stdin orelse return Error.NoFileOnChild;
         var stdin_buf = std.io.bufferedWriter(stdin.writer());
         const writer = stdin_buf.writer();
 
-        var it = gomod.AstIter(@TypeOf(reader)).init(reader);
-        while (try it.next()) |dir| {
-            if (dir != .require) {
+        var it = lib.AstIter.init(buf);
+        while (try it.next()) |ast| {
+            if (ast != .require) {
                 continue;
             }
 
-            const require = dir.require;
+            const require = ast.require;
             if (require.comment) |comment| {
                 if (std.mem.containsAtLeast(u8, comment, 1, "indirect")) {
                     continue;
