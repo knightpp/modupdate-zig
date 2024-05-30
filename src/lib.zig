@@ -276,46 +276,90 @@ fn parseRestOfLine(comptime T: type, it: *T) Error!?[]const u8 {
 const testing = std.testing;
 
 test "module" {
-    var it = AstIter.init("module abcd");
-    const v = try it.next();
-    try testing.expect(v != null);
-    try testing.expectEqualStrings("abcd", v.?.module.path);
-    try testing.expect(try it.next() == null);
+    {
+        const input = "module abcd";
+        const want = [_]Ast{.{ .module = Module{ .path = "abcd" } }};
+        try assert(input, &want);
+    }
+
+    {
+        const input = "module abcd // comment";
+        const want = [_]Ast{.{ .module = Module{ .path = "abcd", .comment = "// comment" } }};
+        try assert(input, &want);
+    }
 }
 
 test "go" {
-    var it = AstIter.init("go v2");
-    const v = try it.next();
-    try testing.expect(v != null);
-    try testing.expectEqualStrings("v2", v.?.go.version);
-    try testing.expect(try it.next() == null);
+    {
+        const input = "go v1.20";
+        const want = [_]Ast{.{ .go = Go{ .version = "v1.20" } }};
+        try assert(input, &want);
+    }
+
+    {
+        const input = "go v1.20 // comment";
+        const want = [_]Ast{.{ .go = Go{ .version = "v1.20", .comment = "// comment" } }};
+        try assert(input, &want);
+    }
 }
 
 test "toolchain" {
-    var it = AstIter.init("toolchain v1.22.0");
-    const v = try it.next();
-    try testing.expect(v != null);
-    try testing.expectEqualStrings("v1.22.0", v.?.toolchain.name);
-    try testing.expect(try it.next() == null);
+    {
+        const input = "toolchain v1.22.0";
+        const want = [_]Ast{.{ .toolchain = Toolchain{ .name = "v1.22.0" } }};
+        try assert(input, &want);
+    }
+
+    {
+        const input = "toolchain v1.22.0 // a comment";
+        const want = [_]Ast{.{ .toolchain = Toolchain{ .name = "v1.22.0", .comment = "// a comment" } }};
+        try assert(input, &want);
+    }
 }
 
 test "require" {
     {
+        const input = "require abcd.com v1";
         const want = [_]Ast{.{ .require = Require{ .path = "abcd.com", .version = "v1", .comment = null } }};
-        try assert("require abcd.com v1", &want);
+        try assert(input, &want);
     }
 
     {
+        const input = "require abcd.com v1\n";
         const want = [_]Ast{.{ .require = Require{ .path = "abcd.com", .version = "v1", .comment = null } }};
-        try assert("require abcd.com v1\n", &want);
+        try assert(input, &want);
     }
 
     {
+        const input = "require abcd.com v1 // comment";
+        const want = [_]Ast{.{ .require = Require{ .path = "abcd.com", .version = "v1", .comment = "// comment" } }};
+        try assert(input, &want);
+    }
+
+    {
+        const input = "require (\n\tabcd.com v1\n)";
         const want = [_]Ast{} ++
             .{.{ .block_start = BlockStart{ .type = .require, .comment = null } }} ++
             .{.{ .require = Require{ .path = "abcd.com", .version = "v1", .comment = null } }} ++
             .{.{ .block_end = BlockEnd{ .type = .require, .comment = null } }};
-        try assert("require (\n\tabcd.com v1\n)", &want);
+        try assert(input, &want);
+    }
+
+    {
+        const input = "require (\n\tabcd.com v1 // a comment\n)\n";
+        const want = [_]Ast{} ++
+            .{.{ .block_start = BlockStart{ .type = .require, .comment = null } }} ++
+            .{.{ .require = Require{ .path = "abcd.com", .version = "v1", .comment = "// a comment" } }} ++
+            .{.{ .block_end = BlockEnd{ .type = .require, .comment = null } }};
+        try assert(input, &want);
+    }
+}
+
+test "replace" {
+    {
+        const input = "replace abcd => dcbd";
+        const want = [_]Ast{.{ .replace = Replace{ .path = "abcd", .version = null, .replacement_path = "dcbd", .replacement_version = null } }};
+        try assert(input, &want);
     }
 }
 
