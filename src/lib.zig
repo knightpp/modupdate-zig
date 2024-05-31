@@ -133,6 +133,14 @@ pub const Exclude = struct {
     path: []const u8,
     version: []const u8,
     comment: ?[]const u8 = null,
+
+    fn parse(comptime T: type, it: *T) Error!Ast {
+        return .{ .exclude = Exclude{
+            .path = try parseString(T, it),
+            .version = try parseString(T, it),
+            .comment = try parseRestOfLine(T, it),
+        } };
+    }
 };
 
 pub const Retract = struct {
@@ -216,6 +224,7 @@ pub const AstIter = struct {
                     },
                     .comment => |str| return try Comment.parse(T, str, &self.it),
                     .replace => return try Replace.parse(T, &self.it),
+                    .exclude => return try Exclude.parse(T, &self.it),
                     else => std.debug.panic("unimplemented: {s}\n", .{@tagName(first)}),
                 }
             },
@@ -378,6 +387,20 @@ test "replace" {
     {
         const input = "replace abcd v1 => dcbd v2";
         const want = [_]Ast{.{ .replace = Replace{ .path = "abcd", .version = "v1", .replacement_path = "dcbd", .replacement_version = "v2" } }};
+        try assert(input, &want);
+    }
+}
+
+test "exclude" {
+    {
+        const input = "exclude abcd v1.0.0";
+        const want = [_]Ast{.{ .exclude = Exclude{ .path = "abcd", .version = "v1.0.0" } }};
+        try assert(input, &want);
+    }
+
+    {
+        const input = "exclude abcd v1.0.0 // a comment";
+        const want = [_]Ast{.{ .exclude = Exclude{ .path = "abcd", .version = "v1.0.0", .comment = "// a comment" } }};
         try assert(input, &want);
     }
 }
