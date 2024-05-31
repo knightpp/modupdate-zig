@@ -113,12 +113,11 @@ pub const Replace = struct {
 
         replace.replacement_path = try parseString(T, it);
 
+        replace.replacement_version = null;
         if (it.peek()) |token| {
             if (token == .string) {
                 _ = it.next();
                 replace.replacement_version = token.string;
-            } else {
-                replace.replacement_version = null;
             }
         }
 
