@@ -104,6 +104,8 @@ pub const Replace = struct {
         switch (maybeVersion) {
             .string => |str| {
                 replace.version = str;
+                const next = it.next() orelse return Error.EOF;
+                if (next != .@"=>") return Error.UnexpectedSyntax;
             },
             .@"=>" => {
                 replace.version = null;
@@ -358,6 +360,24 @@ test "replace" {
     {
         const input = "replace abcd => dcbd";
         const want = [_]Ast{.{ .replace = Replace{ .path = "abcd", .version = null, .replacement_path = "dcbd", .replacement_version = null } }};
+        try assert(input, &want);
+    }
+
+    {
+        const input = "replace abcd v1 => dcbd";
+        const want = [_]Ast{.{ .replace = Replace{ .path = "abcd", .version = "v1", .replacement_path = "dcbd", .replacement_version = null } }};
+        try assert(input, &want);
+    }
+
+    {
+        const input = "replace abcd => dcbd v1";
+        const want = [_]Ast{.{ .replace = Replace{ .path = "abcd", .version = null, .replacement_path = "dcbd", .replacement_version = "v1" } }};
+        try assert(input, &want);
+    }
+
+    {
+        const input = "replace abcd v1 => dcbd v2";
+        const want = [_]Ast{.{ .replace = Replace{ .path = "abcd", .version = "v1", .replacement_path = "dcbd", .replacement_version = "v2" } }};
         try assert(input, &want);
     }
 }
