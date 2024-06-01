@@ -146,6 +146,32 @@ pub const Exclude = struct {
 pub const Retract = struct {
     version: []const u8,
     comment: ?[]const u8 = null,
+
+    fn parse(comptime T: type, it: *T) Error!Ast {
+        const retract = Retract{
+            .version = try parseString(T, it),
+            .comment = try parseRestOfLine(T, it),
+        };
+
+        if (std.mem.startsWith(u8, retract.version, "[") and
+            std.mem.endsWith(u8, retract.version, "]"))
+        {
+            const versions = retract.version[1 .. retract.version.len - 1];
+            var split = std.mem.splitScalar(u8, versions, ',');
+            const low = split.next() orelse return Error.UnexpectedSyntax;
+            const high = split.next() orelse return Error.UnexpectedSyntax;
+            if (split.next()) |_| {
+                return Error.UnexpectedSyntax;
+            }
+
+            return .{ .retract_range = RetractRange{
+                .version_low = low,
+                .version_high = high,
+                .comment = retract.comment,
+            } };
+        }
+        return .{ .retract = retract };
+    }
 };
 
 pub const RetractRange = struct {
@@ -225,6 +251,7 @@ pub const AstIter = struct {
                     .comment => |str| return try Comment.parse(T, str, &self.it),
                     .replace => return try Replace.parse(T, &self.it),
                     .exclude => return try Exclude.parse(T, &self.it),
+                    .retract => return try Retract.parse(T, &self.it),
                     else => std.debug.panic("unimplemented: {s}\n", .{@tagName(first)}),
                 }
             },
@@ -401,6 +428,33 @@ test "exclude" {
     {
         const input = "exclude abcd v1.0.0 // a comment";
         const want = [_]Ast{.{ .exclude = Exclude{ .path = "abcd", .version = "v1.0.0", .comment = "// a comment" } }};
+        try assert(input, &want);
+    }
+}
+
+test "retract" {
+    // retract [version-low,version-high] // rationale
+    {
+        const input = "retract v1.0.0";
+        const want = [_]Ast{.{ .retract = Retract{ .version = "v1.0.0" } }};
+        try assert(input, &want);
+    }
+
+    {
+        const input = "retract v1.0.0 // a comment";
+        const want = [_]Ast{.{ .retract = Retract{ .version = "v1.0.0", .comment = "// a comment" } }};
+        try assert(input, &want);
+    }
+
+    {
+        const input = "retract [v1.0.0,v2.0.0]";
+        const want = [_]Ast{.{ .retract_range = RetractRange{ .version_low = "v1.0.0", .version_high = "v2.0.0" } }};
+        try assert(input, &want);
+    }
+
+    {
+        const input = "retract [v1.0.0,v2.0.0] // a comment";
+        const want = [_]Ast{.{ .retract_range = RetractRange{ .version_low = "v1.0.0", .version_high = "v2.0.0", .comment = "// a comment" } }};
         try assert(input, &want);
     }
 }
