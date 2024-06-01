@@ -7,7 +7,10 @@
 stdenv.mkDerivation {
   name = "modupdate-zig";
 
-  src = nix-gitignore.gitignoreSource [] ./.;
+  src = nix-gitignore.gitignoreSource [] (builtins.path {
+    name = "modupdate-zig";
+    path = ./.;
+  });
 
   nativeBuildInputs = [
     zig.hook
