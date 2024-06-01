@@ -13,14 +13,6 @@ pub fn build(b: *std.Build) void {
         .strip = b.option(bool, "strip", "strip executable"),
     });
 
-    const lib = b.addStaticLibrary(.{
-        .name = "gomodfile",
-        .root_source_file = b.path("src/lib.zig"),
-        .target = target,
-        .optimize = optimize,
-        .single_threaded = true,
-    });
-
     _ = b.addModule("gomodfile", .{
         .root_source_file = b.path("src/lib.zig"),
         .target = target,
@@ -28,7 +20,6 @@ pub fn build(b: *std.Build) void {
         .single_threaded = true,
     });
 
-    b.installArtifact(lib);
     b.installArtifact(exe);
 
     const asm_step = b.step("asm", "Produce assembly");
