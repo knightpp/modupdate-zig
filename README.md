@@ -1,4 +1,4 @@
-# zig gomod
+# modupdate-zig
 
 ## Why?
 
@@ -22,3 +22,9 @@ $ ls -l ./zig-out/bin/
 ## What can be improved?
 
 Replace gum with some native zig TUI lib, there are a few, but it's not enough.
+
+## Install
+
+```shell
+nix profile install github:knightpp/modupdate-zig
+```
