@@ -6,3 +6,4 @@ docgen_tmp/
 /kcov-output/
 
 /.vscode/settings.json
+/result
