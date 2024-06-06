@@ -9,7 +9,19 @@ pub const Error = error{
     ExpectedString,
 };
 
-// TODO: how to use code generation to auto implement some parse funcs?
+pub const Ast = union(enum) {
+    module: Module,
+    go: Go,
+    toolchain: Toolchain,
+    require: Require,
+    replace: Replace,
+    exclude: Exclude,
+    retract: Retract,
+    retract_range: RetractRange,
+    block_start: BlockStart,
+    block_end: BlockEnd,
+    comment: Comment,
+};
 
 pub const Module = struct {
     path: []const u8,
@@ -193,20 +205,6 @@ pub const Comment = struct {
     }
 };
 
-pub const Ast = union(enum) {
-    module: Module,
-    go: Go,
-    toolchain: Toolchain,
-    require: Require,
-    replace: Replace,
-    exclude: Exclude,
-    retract: Retract,
-    retract_range: RetractRange,
-    block_start: BlockStart,
-    block_end: BlockEnd,
-    comment: Comment,
-};
-
 pub const AstIter = struct {
     const Self = @This();
 
@@ -234,6 +232,7 @@ pub const AstIter = struct {
                 switch (first) {
                     .newline => return try self.next(),
                     .module => return try Module.parse(T, &self.it),
+                    // .module => return .{ .module = try autoImplParse(Module, T)(&self.it) },
                     .go => return try Go.parse(T, &self.it),
                     .toolchain => return try Toolchain.parse(T, &self.it),
                     .require => {
@@ -308,6 +307,46 @@ fn parseRestOfLine(comptime T: type, it: *T) Error!?[]const u8 {
         },
         else => return Error.UnexpectedSyntax,
     }
+}
+
+fn autoImplParse(comptime T: type, comptime I: type) fn (it: *I) Error!T {
+    const type_info = @typeInfo(T);
+
+    const st = switch (type_info) {
+        .Struct => |st| st,
+        else => @compileError("only structs are supported"),
+    };
+
+    return struct {
+        fn parse(it: *I) Error!T {
+            var t: T = undefined;
+            comptime var extra_optionals: usize = 0;
+            inline for (st.fields) |field| {
+                switch (field.type) {
+                    []const u8 => {
+                        @field(t, field.name) = try parseString(I, it);
+                    },
+                    ?[]const u8 => comptime {
+                        if (!std.mem.eql(u8, field.name, "comment")) {
+                            extra_optionals += 1;
+                        }
+                    },
+                    else => {
+                        @compileLog("unsupported type", field.type);
+                        @compileError("unsupported type");
+                    },
+                }
+            }
+
+            if (extra_optionals > 0) {
+                @compileError("expected only one optional, comment");
+            }
+
+            t.comment = try parseRestOfLine(I, it);
+
+            return t;
+        }
+    }.parse;
 }
 
 const testing = std.testing;
