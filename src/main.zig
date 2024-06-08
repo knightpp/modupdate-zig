@@ -1,7 +1,65 @@
 const std = @import("std");
-const lib = @import("lib.zig");
+const log = std.log;
+const lib = @import("gomodfile");
+const tb = @import("termbox2");
+const tui = @import("tui.zig");
 
 pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer std.debug.assert(gpa.deinit() == .ok);
+
+    const alloc = gpa.allocator();
+
+    try tb.init();
+    defer tb.shutdown() catch |err| {
+        std.log.err("could not shutdown: {}", .{err});
+    };
+
+    var list = try tui.List.init(alloc, .{ .x = 0, .y = 1 }, &.{ "item1", "item2" });
+    var text_input = tui.TextInput.init(alloc, tui.Pos.init(0, 0), &list);
+    defer list.deinit();
+
+    var w = try tb.width();
+    var h = try tb.height();
+
+    try list.draw(w, h);
+    try text_input.draw(w, h);
+    try tb.present();
+
+    while (true) {
+        const event = try tb.poll_event();
+        switch (event.type) {
+            tb.c.TB_EVENT_KEY => {
+                switch (event.key) {
+                    tb.c.TB_KEY_ESC, tb.c.TB_KEY_CTRL_C, tb.c.TB_KEY_CTRL_D => break,
+                    else => {},
+                }
+
+                try text_input.keyPress(@intCast(event.ch & 0xFF), event.key);
+                list.keyPress(@intCast(event.ch & 0xFF), event.key);
+                try tb.clear();
+                try text_input.draw(w, h);
+                try list.draw(w, h);
+                try tb.present();
+            },
+            tb.c.TB_EVENT_MOUSE => {
+                continue;
+            },
+            tb.c.TB_EVENT_RESIZE => {
+                w = @intCast(event.w);
+                h = @intCast(event.h);
+
+                try tb.clear();
+                try text_input.draw(w, h);
+                try list.draw(w, h);
+                try tb.present();
+            },
+            else => unreachable,
+        }
+    }
+}
+
+pub fn main2() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer {
         const check = gpa.deinit();

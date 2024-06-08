@@ -15,9 +15,13 @@
     // Once all dependencies are fetched, `zig build` no longer requires
     // internet connectivity.
     .dependencies = .{
-        .termbox2 = .{
-            .url = "https://github.com/termbox/termbox2/archive/refs/heads/master.tar.gz",
-            .hash = "1220fcf37f72d05d736c0cd920af8ae801f3f2f67077ba723db6e5c247a36fcaae2b",
+        .@"termbox2-zig" = .{
+            .url = "../termbox2-zig/",
+            .hash = "12206b91152e8847ccabd1fa777c5ab1e11ad107ff1cd2cb6aaf544005c5ca9e0107",
+        },
+        .zf = .{
+            .url = "https://github.com/natecraddock/zf/archive/6dc7ae568ddef64a9b26ec4d227fccc7e190ce3c.tar.gz",
+            .hash = "1220928f801b94593fbc4090004b85490f43eebf1be79c7264c2fc1e74c07be2a723",
         },
     },
     .paths = .{
