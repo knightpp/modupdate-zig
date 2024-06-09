@@ -15,7 +15,18 @@ pub fn main() !void {
         std.log.err("could not shutdown: {}", .{err});
     };
 
-    var list = try tui.List.init(alloc, .{ .x = 0, .y = 1 }, &.{ "item1", "item2" });
+    var target = try openTarget(alloc);
+    defer target.close();
+
+    const deps = try readDeps(alloc, target);
+    defer {
+        for (deps) |value| {
+            alloc.free(value);
+        }
+        alloc.free(deps);
+    }
+
+    var list = try tui.List.init(alloc, .{ .x = 0, .y = 1 }, deps);
     var text_input = tui.TextInput.init(alloc, tui.Pos.init(0, 0), &list);
     defer list.deinit();
 
@@ -31,7 +42,8 @@ pub fn main() !void {
         switch (event.type) {
             tb.c.TB_EVENT_KEY => {
                 switch (event.key) {
-                    tb.c.TB_KEY_ESC, tb.c.TB_KEY_CTRL_C, tb.c.TB_KEY_CTRL_D => break,
+                    tb.c.TB_KEY_ESC, tb.c.TB_KEY_CTRL_C, tb.c.TB_KEY_CTRL_D => return,
+                    tb.c.TB_KEY_ENTER => break,
                     else => {},
                 }
 
@@ -57,25 +69,28 @@ pub fn main() !void {
             else => unreachable,
         }
     }
-}
 
-pub fn main2() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer {
-        const check = gpa.deinit();
-        std.debug.assert(check == .ok);
+    var i = 0;
+    for (list.selected) |value| {
+        if (value) {
+            i += 1;
+        }
     }
+    if (i == 0) return;
 
-    const alloc = gpa.allocator();
-
-    var target = try openTarget(alloc);
-    defer target.close();
-
-    const output = try runFilterUI(alloc, target);
-    defer alloc.free(output);
-
-    try runGoGet(alloc, output, target);
+    try runGoGet(alloc, deps, target);
 }
+
+// pub fn main2() !void {
+//     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+//     defer {
+//         const check = gpa.deinit();
+//         std.debug.assert(check == .ok);
+//     }
+
+//     const alloc = gpa.allocator();
+
+// }
 
 const Error = error{
     ChildNonZeroExit,
@@ -118,71 +133,41 @@ fn openTarget(alloc: std.mem.Allocator) !Target {
     };
 }
 
-fn runFilterUI(alloc: std.mem.Allocator, target: Target) ![]u8 {
-    var child = std.process.Child.init(&.{
-        "gum",
-        "filter",
-        "--no-limit",
-    }, alloc);
-    child.stdin_behavior = .Pipe;
-    child.stdout_behavior = .Pipe;
-    child.stderr_behavior = .Inherit;
+fn readDeps(alloc: std.mem.Allocator, target: Target) ![]const []const u8 {
+    var buf_reader = std.io.bufferedReader(target.file.reader());
+    const buf = try buf_reader.reader().readAllAlloc(alloc, 128 * 1024);
+    defer alloc.free(buf);
 
-    try child.spawn();
+    var deps = std.ArrayList([]u8).init(alloc);
 
-    {
-        var buf_reader = std.io.bufferedReader(target.file.reader());
-        const buf = try buf_reader.reader().readAllAlloc(alloc, 32 * 1024);
-        defer alloc.free(buf);
-
-        var stdin = child.stdin orelse return Error.NoFileOnChild;
-        var stdin_buf = std.io.bufferedWriter(stdin.writer());
-        const writer = stdin_buf.writer();
-
-        var it = lib.AstIter.init(buf);
-        while (try it.next()) |ast| {
-            if (ast != .require) {
-                continue;
-            }
-
-            const require = ast.require;
-            if (require.comment) |comment| {
-                if (std.mem.containsAtLeast(u8, comment, 1, "indirect")) {
-                    continue;
-                }
-            }
-
-            try writer.print("{s}\n", .{require.path});
+    var it = lib.AstIter.init(buf);
+    while (try it.next()) |ast| {
+        if (ast != .require) {
+            continue;
         }
 
-        try stdin_buf.flush();
-        stdin.close();
+        const require = ast.require;
+        if (require.comment) |comment| {
+            if (std.mem.containsAtLeast(u8, comment, 1, "indirect")) {
+                continue;
+            }
+        }
+
+        const path = try alloc.alloc(u8, require.path.len);
+        @memcpy(path, require.path);
+        deps.append(path);
     }
 
-    var output = std.ArrayList(u8).init(alloc);
-    errdefer output.deinit();
-
-    var stdout = child.stdout orelse return Error.NoFileOnChild;
-    var buffered = std.io.bufferedReader(stdout.reader());
-    const reader = buffered.reader();
-
-    try reader.readAllArrayList(&output, 4096);
-
-    child.stdin = null; // if file is null .wait won't close it
-    const term = try child.wait();
-    if (term.Exited != 0) return Error.ChildNonZeroExit;
-
-    return try output.toOwnedSlice();
+    return deps.toOwnedSlice();
 }
 
-fn runGoGet(alloc: std.mem.Allocator, output: []u8, target: Target) !void {
+fn runGoGet(alloc: std.mem.Allocator, deps: []const []const u8, target: Target) !void {
     var argv = std.ArrayList([]const u8).init(alloc);
     defer argv.deinit();
 
     try argv.appendSlice(&.{ "go", "get" });
-    var tokens = std.mem.tokenizeScalar(u8, output, '\n');
-    while (tokens.next()) |token| {
-        try argv.append(token);
+    for (deps) |dep| {
+        try argv.append(dep);
     }
 
     {

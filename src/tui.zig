@@ -62,9 +62,11 @@ pub const TextInput = struct {
 
             self.buf[self.len] = 0;
             self.len -= 1;
-        } else {
+        } else if (std.ascii.isAlphanumeric(ch)) {
             self.buf[self.len] = ch;
             self.len += 1;
+        } else {
+            return;
         }
 
         try self.sortList();
@@ -108,12 +110,24 @@ pub const List = struct {
     alloc: std.mem.Allocator,
     pos: Pos,
     items: [][:0]const u8,
+    sorted: [][:0]const u8,
     selected: []bool,
-    current: isize,
+    current: usize,
 
     const Self = @This();
 
     pub fn init(alloc: std.mem.Allocator, pos: Pos, items: []const []const u8) !Self {
+        return Self{
+            .alloc = alloc,
+            .items = try cloneWithSentinel(alloc, items),
+            .sorted = try cloneWithSentinel(alloc, items),
+            .pos = pos,
+            .selected = try alloc.alloc(bool, items.len),
+            .current = 0,
+        };
+    }
+
+    fn cloneWithSentinel(alloc: std.mem.Allocator, items: []const []const u8) ![][:0]const u8 {
         const items_c = try alloc.alloc([:0]u8, items.len);
         for (items_c, 0..) |*item_c, i| {
             const item = items[i];
@@ -121,39 +135,30 @@ pub const List = struct {
             item_c.* = try alloc.allocSentinel(u8, item.len, 0);
             @memcpy(item_c.*, item);
         }
-
-        return Self{
-            .alloc = alloc,
-            .items = items_c,
-            .pos = pos,
-            .selected = try alloc.alloc(bool, items.len),
-            .current = if (items.len > 0) 0 else -1,
-        };
+        return items_c;
     }
 
     pub fn deinit(self: *Self) void {
         self.alloc.free(self.selected);
+
         for (self.items) |value| {
             self.alloc.free(value);
         }
         self.alloc.free(self.items);
+
+        for (self.sorted) |value| {
+            self.alloc.free(value);
+        }
+        self.alloc.free(self.sorted);
     }
 
     pub fn keyPress(self: *Self, _: u8, key: u16) void {
         switch (key) {
             tb.c.TB_KEY_ARROW_DOWN => {
-                if (self.current + 1 >= self.items.len) {
-                    return;
-                }
-
-                self.current += 1;
+                self.goDown();
             },
             tb.c.TB_KEY_ARROW_UP => {
-                if (self.current - 1 < 0) {
-                    return;
-                }
-
-                self.current -= 1;
+                self.goUp();
             },
             tb.c.TB_KEY_ARROW_LEFT => {
                 self.set(self.current, false);
@@ -161,8 +166,28 @@ pub const List = struct {
             tb.c.TB_KEY_ARROW_RIGHT => {
                 self.set(self.current, true);
             },
+            tb.c.TB_KEY_TAB => {
+                self.set(self.current, !self.selected[self.current]);
+                self.goDown();
+            },
             else => {},
         }
+    }
+
+    fn goUp(self: *Self) void {
+        if (self.current - 1 < 0) {
+            return;
+        }
+
+        self.current -= 1;
+    }
+
+    fn goDown(self: *Self) void {
+        if (self.current + 1 >= self.items.len) {
+            return;
+        }
+
+        self.current += 1;
     }
 
     pub fn draw(self: *Self, screen_w: u32, screen_h: u32) !void {
@@ -188,7 +213,7 @@ pub const List = struct {
         }
     }
 
-    fn sort(self: *Self, tokens: []const []const u8) void {
+    pub fn sort(self: *Self, tokens: []const []const u8) void {
         const comparison = struct {
             fn cmp(context: @TypeOf(tokens), lhs: [:0]const u8, rhs: [:0]const u8) bool {
                 const rank_lhs = zf.rank(lhs, context, false, false) orelse 0;
@@ -198,15 +223,15 @@ pub const List = struct {
         }.cmp;
         std.sort.pdq(
             [:0]const u8,
-            self.items,
+            self.sorted,
             tokens,
             comparison,
         );
     }
 
-    fn set(self: *Self, index: isize, value: bool) void {
+    fn set(self: *Self, index: usize, value: bool) void {
         if (self.selected.len <= index) return;
 
-        self.selected[@intCast(index)] = value;
+        self.selected[index] = value;
     }
 };
