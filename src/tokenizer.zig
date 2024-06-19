@@ -52,7 +52,7 @@ pub const Iterator = struct {
         };
     }
 
-    const token_map = std.ComptimeStringMap(Token, .{
+    const token_map = std.StaticStringMap(Token).initComptime(.{
         .{ "module", Token.module },
         .{ "go", Token.go },
         .{ "toolchain", Token.toolchain },
