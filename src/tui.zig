@@ -1,6 +1,6 @@
 const std = @import("std");
 const vaxis = @import("vaxis");
-const FilterList = @import("list_filter.zig");
+const FilterList = @import("filter_list.zig");
 const Cell = vaxis.Cell;
 const TextInput = vaxis.widgets.TextInput;
 const border = vaxis.widgets.border;
@@ -63,7 +63,7 @@ pub fn main() !void {
     var text_input = TextInput.init(alloc, &vx.unicode);
     defer text_input.deinit();
 
-    var filter_list = FilterList{};
+    var filter_list = try FilterList.init(alloc);
 
     // Sends queries to terminal to detect certain features. This should always
     // be called after entering the alt screen, if you are using the alt screen
@@ -86,6 +86,7 @@ pub fn main() !void {
                     vx.queueRefresh();
                 } else {
                     try text_input.update(.{ .key_press = key });
+                    try filter_list.update(.{ .key_press = key });
                 }
             },
 
