@@ -63,7 +63,8 @@ pub fn main() !void {
     var text_input = TextInput.init(alloc, &vx.unicode);
     defer text_input.deinit();
 
-    var filter_list = try FilterList.init(alloc);
+    var filter_list = try FilterList.init(alloc, &vx.unicode.width_data.g_data, @ptrCast(&vx.unicode.width_data));
+    defer filter_list.deinit();
 
     // Sends queries to terminal to detect certain features. This should always
     // be called after entering the alt screen, if you are using the alt screen
