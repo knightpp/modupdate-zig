@@ -26,7 +26,7 @@ const prefix = " [ ] ";
 const Self = @This();
 
 pub fn init(alloc: std.mem.Allocator, gd: *const vaxis.grapheme.GraphemeData, wd: *const usize) !Self {
-    const list = &.{ "aaa", "bbb", "ccc", "привіт їжа", "日本, にっぽん / にほん" };
+    const list = &(.{ "aaa", "bbb", "ccc", "привіт їжа", "日本, にっぽん / にほん" } ** 8);
     const selected = try std.DynamicBitSet.initEmpty(alloc, list.len);
 
     var self = Self{
@@ -46,6 +46,15 @@ pub fn deinit(self: *Self) void {
 }
 
 pub fn draw(self: *Self, win: vaxis.Window) void {
+    const visibility_start = self.text_view.scroll_view.scroll.y;
+    const visibility_end = self.text_view.scroll_view.scroll.y + win.height - 1;
+    if (self.highlighted_line >= visibility_end) {
+        self.text_view.scroll_view.scroll.y += self.highlighted_line - visibility_end;
+    }
+    if (self.highlighted_line <= visibility_start) {
+        self.text_view.scroll_view.scroll.y -= visibility_start - self.highlighted_line;
+    }
+
     self.text_view.draw(win, self.buffer);
 }
 
