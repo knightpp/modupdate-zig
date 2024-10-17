@@ -69,6 +69,7 @@ pub fn main() !void {
     // Sends queries to terminal to detect certain features. This should always
     // be called after entering the alt screen, if you are using the alt screen
     try vx.queryTerminal(tty.anyWriter(), 1 * std.time.ns_per_s);
+    var buf_tty = std.io.BufferedWriter(8192, std.io.AnyWriter){ .unbuffered_writer = tty.anyWriter() };
 
     while (true) {
         // nextEvent blocks until an event is in the queue
@@ -153,6 +154,7 @@ pub fn main() !void {
 
         // Render the screen. Using a buffered writer will offer much better
         // performance, but is not required
-        try vx.render(tty.anyWriter());
+        try vx.render(buf_tty.writer().any());
+        try buf_tty.flush();
     }
 }
