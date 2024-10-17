@@ -57,24 +57,31 @@ pub fn update(self: *Self, event: Event) !void {
                     return;
                 }
 
-                self.highlighted_line = self.highlighted_line - 1;
-
-                try self.recreateBuffer();
+                self.cursorUp();
             } else if (key.matchesAny(&.{ Key.down, 'n' }, .{})) {
-                self.highlighted_line = @min(self.highlighted_line + 1, self.list.len - 1);
-
-                try self.recreateBuffer();
-            } else if (key.matchesAny(&.{Key.right}, .{})) {
+                self.cursorDown();
+            } else if (key.matches(Key.right, .{})) {
                 self.selected.setValue(self.highlighted_line, true);
-
-                try self.recreateBuffer();
-            } else if (key.matchesAny(&.{ Key.space, Key.tab }, .{})) {
+            } else if (key.matches(Key.space, .{})) {
                 self.selected.toggle(self.highlighted_line);
-
-                try self.recreateBuffer();
+            } else if (key.matches(Key.tab, .{})) {
+                self.selected.toggle(self.highlighted_line);
+                self.cursorDown();
+            } else {
+                return;
             }
+
+            try self.recreateBuffer();
         },
     }
+}
+
+fn cursorDown(self: *Self) void {
+    self.highlighted_line = @min(self.highlighted_line + 1, self.list.len - 1);
+}
+
+fn cursorUp(self: *Self) void {
+    self.highlighted_line = self.highlighted_line - 1;
 }
 
 fn recreateBuffer(self: *Self) !void {
