@@ -78,10 +78,7 @@ pub fn main() !void {
         // has the fields for those events (ie "key_press", "winsize")
         switch (event) {
             .key_press => |key| {
-                color_idx = switch (color_idx) {
-                    255 => 0,
-                    else => color_idx + 1,
-                };
+                color_idx +%= 1;
                 if (key.matches('c', .{ .ctrl = true })) {
                     break;
                 } else if (key.matches('l', .{ .ctrl = true })) {
