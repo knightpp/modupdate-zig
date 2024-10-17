@@ -16,7 +16,7 @@
     // internet connectivity.
     .dependencies = .{
         .vaxis = .{
-            .url = "git+https://github.com/knightpp/libvaxis?ref=text-view-fix#ad383c419dc0ee2ec577338b59f8a70a61ce5999",
+            .url = "git+https://github.com/rockorager/libvaxis?ref=main#142131595ac236d8c6174cf2c068fac0dfaa7e24",
             .hash = "1220a5c27f49809d9bdb637914bd0a011d16cf701288bedaaec20117901b633851de",
         },
     },
