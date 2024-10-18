@@ -14,7 +14,12 @@
     // `zig build --fetch` can be used to fetch all dependencies of a package, recursively.
     // Once all dependencies are fetched, `zig build` no longer requires
     // internet connectivity.
-    .dependencies = .{},
+    .dependencies = .{
+        .vaxis = .{
+            .url = "git+https://github.com/rockorager/libvaxis?ref=main#142131595ac236d8c6174cf2c068fac0dfaa7e24",
+            .hash = "1220a5c27f49809d9bdb637914bd0a011d16cf701288bedaaec20117901b633851de",
+        },
+    },
     .paths = .{
         "build.zig",
         "build.zig.zon",

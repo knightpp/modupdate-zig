@@ -4,14 +4,23 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const vaxis = b.dependency("vaxis", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const strip = b.option(bool, "strip", "strip executable");
+
     const exe = b.addExecutable(.{
         .name = "modupdate",
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
-        .single_threaded = true,
-        .strip = b.option(bool, "strip", "strip executable"),
+        .single_threaded = false,
+        .strip = strip,
     });
+
+    exe.root_module.addImport("vaxis", vaxis.module("vaxis"));
 
     _ = b.addModule("gomodfile", .{
         .root_source_file = b.path("src/lib.zig"),
