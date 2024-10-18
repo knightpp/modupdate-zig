@@ -1,5 +1,6 @@
 const std = @import("std");
 const lib = @import("lib.zig");
+const choose = @import("tui.zig").choose;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -13,10 +14,19 @@ pub fn main() !void {
     var target = try openTarget(alloc);
     defer target.close();
 
-    const output = try runFilterUI(alloc, target);
-    defer alloc.free(output);
+    const list = try runFilterUI(alloc, target);
+    defer {
+        for (list) |line| {
+            alloc.free(line);
+        }
+        alloc.free(list);
+    }
 
-    try runGoGet(alloc, output, target);
+    if (list.len == 0) {
+        return;
+    }
+
+    try runGoGet(alloc, list, target);
 }
 
 const Error = error{
@@ -60,72 +70,39 @@ fn openTarget(alloc: std.mem.Allocator) !Target {
     };
 }
 
-fn runFilterUI(alloc: std.mem.Allocator, target: Target) ![]u8 {
-    var child = std.process.Child.init(&.{
-        "gum",
-        "filter",
-        "--no-limit",
-    }, alloc);
-    child.stdin_behavior = .Pipe;
-    child.stdout_behavior = .Pipe;
-    child.stderr_behavior = .Inherit;
+fn runFilterUI(alloc: std.mem.Allocator, target: Target) ![]const []const u8 {
+    var list = std.ArrayList([]const u8).init(alloc);
+    defer list.deinit();
 
-    try child.spawn();
+    var buf_reader = std.io.bufferedReader(target.file.reader());
+    const buf = try buf_reader.reader().readAllAlloc(alloc, 32 * 1024);
+    defer alloc.free(buf);
 
-    {
-        var buf_reader = std.io.bufferedReader(target.file.reader());
-        const buf = try buf_reader.reader().readAllAlloc(alloc, 32 * 1024);
-        defer alloc.free(buf);
-
-        var stdin = child.stdin orelse return Error.NoFileOnChild;
-        var stdin_buf = std.io.bufferedWriter(stdin.writer());
-        const writer = stdin_buf.writer();
-
-        var it = lib.AstIter.init(buf);
-        while (try it.next()) |ast| {
-            if (ast != .require) {
-                continue;
-            }
-
-            const require = ast.require;
-            if (require.comment) |comment| {
-                if (std.mem.containsAtLeast(u8, comment, 1, "indirect")) {
-                    continue;
-                }
-            }
-
-            try writer.print("{s}\n", .{require.path});
+    var it = lib.AstIter.init(buf);
+    while (try it.next()) |ast| {
+        if (ast != .require) {
+            continue;
         }
 
-        try stdin_buf.flush();
-        stdin.close();
+        const require = ast.require;
+        if (require.comment) |comment| {
+            if (std.mem.containsAtLeast(u8, comment, 1, "indirect")) {
+                continue;
+            }
+        }
+
+        try list.append(require.path);
     }
 
-    var output = std.ArrayList(u8).init(alloc);
-    errdefer output.deinit();
-
-    var stdout = child.stdout orelse return Error.NoFileOnChild;
-    var buffered = std.io.bufferedReader(stdout.reader());
-    const reader = buffered.reader();
-
-    try reader.readAllArrayList(&output, 4096);
-
-    child.stdin = null; // if file is null .wait won't close it
-    const term = try child.wait();
-    if (term.Exited != 0) return Error.ChildNonZeroExit;
-
-    return try output.toOwnedSlice();
+    return try choose(alloc, list.items);
 }
 
-fn runGoGet(alloc: std.mem.Allocator, output: []u8, target: Target) !void {
-    var argv = std.ArrayList([]const u8).init(alloc);
+fn runGoGet(alloc: std.mem.Allocator, chosen: []const []const u8, target: Target) !void {
+    var argv = try std.ArrayList([]const u8).initCapacity(alloc, 2 + chosen.len);
     defer argv.deinit();
 
     try argv.appendSlice(&.{ "go", "get" });
-    var tokens = std.mem.tokenizeScalar(u8, output, '\n');
-    while (tokens.next()) |token| {
-        try argv.append(token);
-    }
+    try argv.appendSlice(chosen);
 
     {
         const cmdline = try std.mem.join(alloc, " ", argv.items);

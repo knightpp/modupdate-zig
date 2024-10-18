@@ -16,20 +16,11 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
-        .single_threaded = true,
-        .strip = strip,
-    });
-
-    const exe2 = b.addExecutable(.{
-        .name = "tui-demo",
-        .root_source_file = b.path("src/tui.zig"),
-        .target = target,
-        .optimize = optimize,
         .single_threaded = false,
         .strip = strip,
     });
 
-    exe2.root_module.addImport("vaxis", vaxis.module("vaxis"));
+    exe.root_module.addImport("vaxis", vaxis.module("vaxis"));
 
     _ = b.addModule("gomodfile", .{
         .root_source_file = b.path("src/lib.zig"),
@@ -39,12 +30,11 @@ pub fn build(b: *std.Build) void {
     });
 
     b.installArtifact(exe);
-    b.installArtifact(exe2);
 
     const asm_step = b.step("asm", "Produce assembly");
     asm_step.dependOn(&b.addInstallFile(exe.getEmittedAsm(), "modupdate.s").step);
 
-    const run_cmd = b.addRunArtifact(exe2);
+    const run_cmd = b.addRunArtifact(exe);
     const run_step = b.step("run", "Run the application");
     run_step.dependOn(&run_cmd.step);
 

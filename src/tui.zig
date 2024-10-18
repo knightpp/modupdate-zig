@@ -15,29 +15,10 @@ const Event = union(enum) {
     foo: u8,
 };
 
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer {
-        const deinit_status = gpa.deinit();
-        //fail test; can't try in defer as defer is executed after we return
-        if (deinit_status == .leak) {
-            std.log.err("memory leak", .{});
-        }
-    }
-    const alloc = gpa.allocator();
-
-    const selected = try choose(alloc);
-    defer alloc.free(selected);
-
-    std.debug.print("{s}", .{selected});
-}
-
-fn choose(alloc: std.mem.Allocator) ![][]const u8 {
-    // Initialize a tty
+pub fn choose(alloc: std.mem.Allocator, list: []const []const u8) ![][]const u8 {
     var tty = try vaxis.Tty.init();
     defer tty.deinit();
 
-    // Initialize Vaxis
     var vx = try vaxis.init(alloc, .{});
     // deinit takes an optional allocator. If your program is exiting, you can
     // choose to pass a null allocator to save some exit time.
@@ -70,7 +51,7 @@ fn choose(alloc: std.mem.Allocator) ![][]const u8 {
     var text_input = TextInput.init(alloc, &vx.unicode);
     defer text_input.deinit();
 
-    var filter_list = try FilterList.init(alloc, &vx.unicode.width_data.g_data, @ptrCast(&vx.unicode.width_data));
+    var filter_list = try FilterList.init(alloc, list, &vx.unicode.width_data.g_data, @ptrCast(&vx.unicode.width_data));
     defer filter_list.deinit();
 
     // Sends queries to terminal to detect certain features. This should always
@@ -170,7 +151,8 @@ fn choose(alloc: std.mem.Allocator) ![][]const u8 {
 
     var it = filter_list.selected.iterator(.{ .kind = .set });
     while (it.next()) |i| {
-        try selected.append(filter_list.list[i]);
+        const line = try alloc.dupe(u8, filter_list.list[i]);
+        try selected.append(line);
     }
 
     return try selected.toOwnedSlice();

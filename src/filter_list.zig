@@ -19,15 +19,14 @@ highlighted_line: usize = 0,
 text_view: TextView = .{},
 buffer: TextView.Buffer = .{},
 
-const prefix = " [ ] ";
 // style: vaxis.Style = .{ .dim = true },
 // highlighted_style: vaxis.Style = .{ .dim = true, .bg = .{ .index = 0 } },
 
 const Self = @This();
 
-pub fn init(alloc: std.mem.Allocator, gd: *const vaxis.grapheme.GraphemeData, wd: *const usize) !Self {
-    const list = &(.{ "aaa", "bbb", "ccc", "привіт їжа", "日本, にっぽん / にほん" } ** 8);
-    const selected = try std.DynamicBitSet.initEmpty(alloc, list.len);
+pub fn init(alloc: std.mem.Allocator, list: []const []const u8, gd: *const vaxis.grapheme.GraphemeData, wd: *const usize) !Self {
+    var selected = try std.DynamicBitSet.initEmpty(alloc, list.len);
+    errdefer selected.deinit();
 
     var self = Self{
         .gd = gd,
