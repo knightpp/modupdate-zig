@@ -14,7 +14,17 @@ pub fn main() !void {
     var target = try openTarget(alloc);
     defer target.close();
 
-    const list = try runFilterUI(alloc, target);
+    const list = runFilterUI(alloc, target) catch |err| switch (err) {
+        error.ctrl_c => {
+            std.log.info("ctrl+c exit", .{});
+            return;
+        },
+        error.ctrl_d => {
+            std.log.info("ctrl+d exit", .{});
+            return;
+        },
+        else => return err,
+    };
     defer {
         for (list) |line| {
             alloc.free(line);
@@ -23,6 +33,7 @@ pub fn main() !void {
     }
 
     if (list.len == 0) {
+        std.log.info("nothing was selected", .{});
         return;
     }
 

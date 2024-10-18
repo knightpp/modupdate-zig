@@ -68,9 +68,9 @@ pub fn choose(alloc: std.mem.Allocator, list: []const []const u8) ![][]const u8 
             .key_press => |key| {
                 color_idx +%= 1;
                 if (key.matches('c', .{ .ctrl = true })) {
-                    break;
+                    return error.ctrl_c;
                 } else if (key.matches('d', .{ .ctrl = true })) {
-                    break;
+                    return error.ctrl_d;
                 } else if (key.matches(vaxis.Key.enter, .{})) {
                     break;
                 } else if (key.matches('l', .{ .ctrl = true })) {
