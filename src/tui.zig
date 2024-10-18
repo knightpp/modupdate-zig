@@ -26,6 +26,13 @@ pub fn main() !void {
     }
     const alloc = gpa.allocator();
 
+    const selected = try choose(alloc);
+    defer alloc.free(selected);
+
+    std.debug.print("{s}", .{selected});
+}
+
+fn choose(alloc: std.mem.Allocator) ![][]const u8 {
     // Initialize a tty
     var tty = try vaxis.Tty.init();
     defer tty.deinit();
@@ -80,6 +87,10 @@ pub fn main() !void {
             .key_press => |key| {
                 color_idx +%= 1;
                 if (key.matches('c', .{ .ctrl = true })) {
+                    break;
+                } else if (key.matches('d', .{ .ctrl = true })) {
+                    break;
+                } else if (key.matches(vaxis.Key.enter, .{})) {
                     break;
                 } else if (key.matches('l', .{ .ctrl = true })) {
                     vx.queueRefresh();
@@ -149,9 +160,18 @@ pub fn main() !void {
         text_input.draw(input_window);
         filter_list.draw(list_window);
 
-        // Render the screen. Using a buffered writer will offer much better
-        // performance, but is not required
         try vx.render(buf_tty.writer().any());
         try buf_tty.flush();
     }
+
+    const n = filter_list.selected.count();
+    var selected = try std.ArrayList([]const u8).initCapacity(alloc, n);
+    defer selected.deinit();
+
+    var it = filter_list.selected.iterator(.{ .kind = .set });
+    while (it.next()) |i| {
+        try selected.append(filter_list.list[i]);
+    }
+
+    return try selected.toOwnedSlice();
 }
