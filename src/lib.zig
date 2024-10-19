@@ -58,6 +58,7 @@ pub const Toolchain = struct {
 
 pub const BlockType = enum {
     require,
+    replace,
 };
 
 pub const BlockStart = struct {
@@ -208,8 +209,8 @@ pub const Comment = struct {
 pub const AstIter = struct {
     const Self = @This();
 
-    const State = enum {
-        require_block,
+    const State = union(enum) {
+        require_block: BlockType,
         top_level,
     };
 
@@ -235,33 +236,27 @@ pub const AstIter = struct {
                     // .module => return .{ .module = try autoImplParse(Module, T)(&self.it) },
                     .go => return try Go.parse(T, &self.it),
                     .toolchain => return try Toolchain.parse(T, &self.it),
-                    .require => {
-                        const token = self.it.peek();
-                        if (token) |ast| {
-                            if (ast == .block_start) {
-                                _ = self.it.next();
-                                self.state = .require_block;
-                                return try BlockStart.parse(T, .require, &self.it);
-                            }
-                        }
-
-                        return try Require.parse(T, &self.it);
-                    },
+                    .require => return try self.beginBlockParsing(.require, Require.parse),
+                    .replace => return try self.beginBlockParsing(.replace, Replace.parse), //return try Replace.parse(T, &self.it),
                     .comment => |str| return try Comment.parse(T, str, &self.it),
-                    .replace => return try Replace.parse(T, &self.it),
                     .exclude => return try Exclude.parse(T, &self.it),
                     .retract => return try Retract.parse(T, &self.it),
-                    else => std.debug.panic("unimplemented: {s}\n", .{@tagName(first)}),
+                    else => std.debug.panic("unimplemented: {s}: {}\n", .{ @tagName(first), first }),
                 }
             },
-            .require_block => {
+            .require_block => |bt| {
                 switch (first) {
                     .block_end => {
                         _ = self.it.next();
                         self.state = .top_level;
-                        return try BlockEnd.parse(T, .require, &self.it);
+                        return try BlockEnd.parse(T, bt, &self.it);
                     },
-                    .string => return try Require.parse(T, &self.it),
+                    .string => {
+                        switch (bt) {
+                            .require => return try Require.parse(T, &self.it),
+                            .replace => return try Replace.parse(T, &self.it),
+                        }
+                    },
                     else => |other| {
                         std.debug.print("expected block end or string, got: {}\n", .{other});
                         return Error.UnexpectedSyntax;
@@ -280,6 +275,19 @@ pub const AstIter = struct {
 
             return;
         }
+    }
+
+    fn beginBlockParsing(self: *Self, bt: BlockType, parse: fn (comptime type, *@TypeOf(self.it)) Error!Ast) !Ast {
+        const token = self.it.peek();
+        if (token) |ast| {
+            if (ast == .block_start) {
+                _ = self.it.next();
+                self.state = .{ .require_block = bt };
+                return try BlockStart.parse(@TypeOf(self.it), bt, &self.it);
+            }
+        }
+
+        return try parse(@TypeOf(self.it), &self.it);
     }
 };
 
@@ -544,6 +552,24 @@ test "real world" {
         .{.{ .require = Require{ .path = "cloud.google.com/go/pubsub", .version = "v1.36.2", .comment = "// indirect" } }} ++
         .{.{ .block_end = BlockEnd{ .type = .require } }};
     try assert(file, &want);
+}
+
+test "kubernetes replace issue" {
+    const input =
+        \\replace (
+        \\	k8s.io/api => ./staging/src/k8s.io/api
+        \\)
+    ;
+    const want = [_]Ast{
+        .{ .block_start = BlockStart{ .type = .replace } },
+        .{
+            .replace = Replace{ .path = "k8s.io/api", .version = null, .replacement_path = "./staging/src/k8s.io/api", .replacement_version = null },
+        },
+        .{ .block_end = BlockEnd{ .type = .replace } },
+    };
+    try assert(input, &want);
+
+    // try assert(modfile, &.{ .replace, .block_start, .newline, .{ .string =  }, .@"=>", .{ .string = "./staging/src/k8s.io/api" }, .newline, .block_end });
 }
 
 fn assert(text: []const u8, want_slice: []const Ast) !void {

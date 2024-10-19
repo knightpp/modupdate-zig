@@ -202,3 +202,12 @@ test "replace" {
         &.{ .replace, .{ .string = "a" }, .@"=>", .{ .string = "b" } },
     );
 }
+
+test "kubernetes replace issue" {
+    const modfile =
+        \\replace (
+        \\	k8s.io/api => ./staging/src/k8s.io/api
+        \\)
+    ;
+    try assert(modfile, &.{ .replace, .block_start, .newline, .{ .string = "k8s.io/api" }, .@"=>", .{ .string = "./staging/src/k8s.io/api" }, .newline, .block_end });
+}
