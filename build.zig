@@ -8,6 +8,10 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const zbench = b.dependency("zbench", .{
+        .target = target,
+        .optimize = optimize,
+    }).module("zbench");
 
     const strip = b.option(bool, "strip", "strip executable");
 
@@ -22,7 +26,7 @@ pub fn build(b: *std.Build) void {
 
     exe.root_module.addImport("vaxis", vaxis.module("vaxis"));
 
-    _ = b.addModule("gomodfile", .{
+    const gomodfile_mod = b.addModule("gomodfile", .{
         .root_source_file = b.path("src/lib.zig"),
         .target = target,
         .optimize = optimize,
@@ -30,6 +34,19 @@ pub fn build(b: *std.Build) void {
     });
 
     b.installArtifact(exe);
+
+    const benchmark = b.addExecutable(.{
+        .name = "modupdate",
+        .root_source_file = b.path("src/bench/main.zig"),
+        .target = target,
+        .optimize = optimize,
+        .strip = strip,
+    });
+    benchmark.root_module.addImport("zbench", zbench);
+    benchmark.root_module.addImport("gomodfile", gomodfile_mod);
+    const benchmark_step = b.step("bench", "Run benchmark");
+    const benchmark_cmd = b.addRunArtifact(benchmark);
+    benchmark_step.dependOn(&benchmark_cmd.step);
 
     const asm_step = b.step("asm", "Produce assembly");
     asm_step.dependOn(&b.addInstallFile(exe.getEmittedAsm(), "modupdate.s").step);

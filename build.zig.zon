@@ -19,6 +19,10 @@
             .url = "git+https://github.com/rockorager/libvaxis?ref=main#142131595ac236d8c6174cf2c068fac0dfaa7e24",
             .hash = "1220a5c27f49809d9bdb637914bd0a011d16cf701288bedaaec20117901b633851de",
         },
+        .zbench = .{
+            .url = "git+https://github.com/hendriknielaender/zbench?ref=main#0d5417d53e38026503cf993ef9aa24a5fa9554dc",
+            .hash = "12202e943486d4351fcc633aed880df43e9025f8866c746619da284a3048ef529233",
+        },
     },
     .paths = .{
         "build.zig",
