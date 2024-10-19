@@ -1,6 +1,6 @@
 const zbench = @import("zbench");
 const std = @import("std");
-const astBenchmark = @import("ast.zig").benchmark;
+const benchmarks = @import("benchmarks.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -12,6 +12,7 @@ pub fn main() !void {
     var bench = zbench.Benchmark.init(gpa.allocator(), .{});
     defer bench.deinit();
 
-    try bench.add("Ast Benchmark", astBenchmark, .{});
+    try bench.add("Ast Benchmark", benchmarks.astBenchmark, .{});
+    try bench.add("Tokenizer Benchmark", benchmarks.tokenizerBenchmark, .{});
     try bench.run(std.io.getStdErr().writer());
 }

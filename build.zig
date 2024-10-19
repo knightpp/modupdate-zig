@@ -3,6 +3,7 @@ const std = @import("std");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+    const build_only = b.option(bool, "build", "Build tests/benchmarks but do not run") orelse false;
 
     const vaxis = b.dependency("vaxis", .{
         .target = target,
@@ -36,7 +37,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(exe);
 
     const benchmark = b.addExecutable(.{
-        .name = "modupdate",
+        .name = "benchmark",
         .root_source_file = b.path("src/bench/main.zig"),
         .target = target,
         .optimize = optimize,
@@ -46,7 +47,12 @@ pub fn build(b: *std.Build) void {
     benchmark.root_module.addImport("gomodfile", gomodfile_mod);
     const benchmark_step = b.step("bench", "Run benchmark");
     const benchmark_cmd = b.addRunArtifact(benchmark);
-    benchmark_step.dependOn(&benchmark_cmd.step);
+    const benchmark_install = b.addInstallArtifact(benchmark, .{});
+    if (build_only) {
+        benchmark_step.dependOn(&benchmark_install.step);
+    } else {
+        benchmark_step.dependOn(&benchmark_cmd.step);
+    }
 
     const asm_step = b.step("asm", "Produce assembly");
     asm_step.dependOn(&b.addInstallFile(exe.getEmittedAsm(), "modupdate.s").step);
@@ -68,7 +74,6 @@ pub fn build(b: *std.Build) void {
     });
 
     const test_step = b.step("test", "Run unit tests");
-    const build_only = b.option(bool, "build", "Build tests but do not run") orelse false;
     if (build_only) {
         const tests_artifact = b.addInstallArtifact(lib_unit_tests, .{});
         test_step.dependOn(&tests_artifact.step);

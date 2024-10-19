@@ -1,10 +1,16 @@
 const std = @import("std");
 const lib = @import("gomodfile");
 
-pub fn benchmark(alloc: std.mem.Allocator) void {
+pub fn astBenchmark(alloc: std.mem.Allocator) void {
     _ = alloc;
     var iter = lib.AstIter.init(kubernetes_modfile);
     while (iter.next() catch unreachable) |_| {}
+}
+
+pub fn tokenizerBenchmark(alloc: std.mem.Allocator) void {
+    _ = alloc;
+    var iter = lib.tokenizer.Iterator.init(kubernetes_modfile);
+    while (iter.next()) |_| {}
 }
 
 const kubernetes_modfile =
