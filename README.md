@@ -1,5 +1,9 @@
 # modupdate-zig
 
+## [MOVED TO CODEBERG](https://codeberg.org/knightpp/modupdate-zig)
+
+<https://codeberg.org/knightpp/modupdate-zig>
+
 ## Why?
 
 I wanted to rewrite <https://github.com/knightpp/modupdate> in Zig and I was bored.
